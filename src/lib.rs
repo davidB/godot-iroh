@@ -24,6 +24,41 @@ fn lan_lookup(advertise: bool) -> iroh_mdns_address_lookup::MdnsAddressLookupBui
         .advertise(advertise)
 }
 
+/// Android: iroh reads the network configuration (interfaces, DNS servers) through JNI, which
+/// needs the JavaVM and the application context (`ndk_context`), else it panics. Godot loads a
+/// GDExtension with `dlopen`, so this only runs once the game calls
+/// `System.loadLibrary("godot_iroh_<arch>")` on the already loaded library.
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+pub extern "system" fn JNI_OnLoad(vm: jni::JavaVM, _: *mut std::ffi::c_void) -> jni::sys::jint {
+    let app = vm.get_env().and_then(|mut env| {
+        let app = env
+            .call_static_method(
+                "android/app/ActivityThread",
+                "currentApplication",
+                "()Landroid/app/Application;",
+                &[],
+            )?
+            .l()?;
+        env.new_global_ref(app)
+    });
+    match app {
+        Ok(app) => {
+            // SAFETY: the VM outlives the library, and the global ref is leaked so the context
+            // stays valid until the process exits
+            unsafe {
+                iroh::dns::install_android_jni_context(
+                    vm.get_java_vm_pointer().cast(),
+                    app.as_obj().as_raw().cast(),
+                );
+            }
+            std::mem::forget(app);
+        }
+        Err(e) => godot_error!("godot-iroh: no Android context for JNI: {e}"),
+    }
+    jni::sys::JNI_VERSION_1_6
+}
+
 struct MyExtension;
 
 #[gdextension]

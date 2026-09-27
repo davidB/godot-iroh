@@ -21,3 +21,4 @@ n0-future = "0.3.2"
 # only IrohRuntime gets registered.
 [target.'cfg(target_os = "android")'.dependencies]
 godot = { version = "0.4.5", features = ["experimental-threads"] }
+jni = "0.21"

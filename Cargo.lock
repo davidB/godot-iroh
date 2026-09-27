@@ -916,6 +916,7 @@ dependencies = [
  "godot",
  "iroh",
  "iroh-mdns-address-lookup",
+ "jni 0.21.1",
  "n0-future",
  "tokio",
 ]
